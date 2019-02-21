@@ -1,0 +1,38 @@
+﻿<tr class="GridViewRowStyle">
+		<td>
+			<span id="gvProposedCoursesSchedule_lblGvCourseNo_6">11102</span>
+		</td>
+		<td>
+			<span id="gvProposedCoursesSchedule_lblGvCourseNameA_6">مقدمة في علم الحاسوب</span>
+		</td>
+		<td>
+			<span id="gvProposedCoursesSchedule_lblGvCourseNameE_6">Introduction to Computer Science</span>
+		</td>
+		<td>
+			<span id="gvProposedCoursesSchedule_lblGvSections_6">4</span>
+		</td>
+		<td>
+			<span id="gvProposedCoursesSchedule_lblGvInstructorA_6">د. ساره تدمري</span>		
+		</td>	
+		<td>
+			<span id="gvProposedCoursesSchedule_lblDivision_6">علم الحاسوب</span>
+		</td>
+		<td>
+			<span id="gvProposedCoursesSchedule_lblGvDayA_6">ن ر</span>		
+		</td>
+		<td>
+			<span id="gvProposedCoursesSchedule_lblGvStartTime_6">9:30</span>
+			<span id="gvProposedCoursesSchedule_lblGvTimeSeparator_6"> - </span>
+			<span id="gvProposedCoursesSchedule_lblGvEndTime_6">11:0</span>
+		</td>
+		<td>
+			<span id="gvProposedCoursesSchedule_lblGvClassRoomsA_6">207</span>
+			
+		</td>
+		<td>
+			<span id="gvProposedCoursesSchedule_lblGvMaxStNo_6">30</span>
+		</td>
+		<td>
+			<span id="gvProposedCoursesSchedule_lblGvRegStNo_6">0</span>
+		</td>
+</tr>

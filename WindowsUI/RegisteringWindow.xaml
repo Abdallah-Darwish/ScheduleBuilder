@@ -1,0 +1,67 @@
+﻿<Window
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:WindowsUI"
+        xmlns:xctk="http://schemas.xceed.com/wpf/xaml/toolkit" x:Class="WindowsUI.RegisteringWindow"
+        ResizeMode="NoResize"
+        mc:Ignorable="d"
+        Title="Registering Window (ALPHA)" Height="349.2" Width="705.6">
+    <TabControl HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+        <TabItem Name="tabInfo" Header="Information">
+            <Grid HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                <GroupBox Header="Account" HorizontalAlignment="Left" Height="62" Margin="10,10,0,0" VerticalAlignment="Top" Width="674">
+                    <Grid HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                        <Label Content="User name" HorizontalAlignment="Left" Margin="10,10,0,0" VerticalAlignment="Top"/>
+                        <Label Content="Password" HorizontalAlignment="Left" Margin="271,10,0,0" VerticalAlignment="Top"/>
+                        <TextBox x:Name="txtUserName" HorizontalAlignment="Left" Height="18" Margin="82,14,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="149"/>
+                        <PasswordBox x:Name="txtPassword" HorizontalAlignment="Left" Margin="335,14,0,0" VerticalAlignment="Top" Width="145"/>
+                        <Button x:Name="btnTestAccount" Content="Check" HorizontalAlignment="Left" Margin="576,11,0,0" VerticalAlignment="Top" Width="75" Click="BtnTestAccount_Click"/>
+
+                    </Grid>
+                </GroupBox>
+                <GroupBox Header="Registeration" HorizontalAlignment="Left" Height="66" Margin="10,77,0,0" VerticalAlignment="Top" Width="674">
+                    <Grid HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                        <Label Content="Start time" HorizontalAlignment="Left" Margin="10,10,0,0" VerticalAlignment="Top"/>
+
+                        <xctk:TimePicker Name="tmeStartTime" HorizontalAlignment="Left" Margin="76,15,0,0" VerticalAlignment="Top" Width="165"/>
+
+                    </Grid>
+                </GroupBox>
+                <GroupBox Header="Schedule" HorizontalAlignment="Left" Height="68" Margin="10,148,0,0" VerticalAlignment="Top" Width="674">
+                    <Grid HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                        <Label Content="File path" HorizontalAlignment="Left" Margin="10,10,0,0" VerticalAlignment="Top"/>
+                        <TextBox Name="txtSchedulePath" HorizontalAlignment="Left" Height="23" Margin="71,10,0,0" TextWrapping="Wrap" VerticalAlignment="Top" Width="500"/>
+                        <Button Name="btnBrowseSchedule" Content="Browse" HorizontalAlignment="Left" Margin="576,10,0,0" VerticalAlignment="Top" Width="75" Height="23" Click="BtnBrowseSchedule_Click"/>
+
+                    </Grid>
+                </GroupBox>
+            </Grid>
+        </TabItem>
+        <TabItem Header="Registering">
+            <Grid HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
+                <ListView Name="lstClasses" HorizontalAlignment="Left" Height="200" Margin="10,10,0,0" VerticalAlignment="Top" Width="676" FlowDirection="RightToLeft">
+                    <ListView.View>
+                        <GridView>
+                            <GridViewColumn Header="Name" Width="250" DisplayMemberBinding="{Binding Name}"/>
+                            <GridViewColumn Header="Instructor Name" Width="215" DisplayMemberBinding="{Binding InstructorName}"/>
+                            <GridViewColumn Header="Status" Width="200">
+                                <GridViewColumn.CellTemplate>
+                                    <DataTemplate>
+                                        <Label Content="{Binding Status, Mode=OneWay}" Foreground="{Binding StatusForegroundBrush, Mode=OneWay}"/>
+                                    </DataTemplate>
+                                </GridViewColumn.CellTemplate>
+                            </GridViewColumn>
+                        </GridView>
+                    </ListView.View>
+                </ListView>
+                <Label Name="lblLoginCountdown" Content="Until login: " HorizontalAlignment="Left" Margin="10,215,0,0" VerticalAlignment="Top"/>
+                <Label Name="lblRegisterCountdown" Content="Until attack: " HorizontalAlignment="Left" Margin="420,215,0,0" VerticalAlignment="Top"/>
+                <Button Name="btnStartProcess" Content="Start" HorizontalAlignment="Left" Margin="10,264,0,0" VerticalAlignment="Top" Width="75" Click="BtnStartProcess_Click"/>
+                <Button Name="btnStopProcess" Content="Stop" HorizontalAlignment="Left" Margin="609,264,0,0" VerticalAlignment="Top" Width="75" Click="BtnStopProcess_Click"/>
+
+            </Grid>
+        </TabItem>
+    </TabControl>
+</Window>
