@@ -14,10 +14,8 @@ namespace WindowsUI
         void InitializeInfoTab()
         {
 #if DEBUG
-            txtUserName.Text = "20170583";
-            txtPassword.Password = "HusHus_12";
-            txtSchedulePath.Text = @"C:\Users\abdal\Desktop\omari.json";
-            tmeStartTime.Value = new DateTime(1, 1, 1, 18, 0, 0);
+            txtUserName.Text = "20170112";
+            txtPassword.Password = "C#8sQlC++";
 #endif
         }
         private async void BtnTestAccount_Click(object sender, RoutedEventArgs e)
@@ -81,17 +79,16 @@ namespace WindowsUI
                 MessageBox.Show("Please enter your password.", "Missing Data", MessageBoxButton.OK, MessageBoxImage.Error);
                 return false;
             }
-            if (tmeStartTime.Value.HasValue == false)
-            {
-                MessageBox.Show("Please enter when does the registration begins.", "Missing Data", MessageBoxButton.OK, MessageBoxImage.Error);
-                return false;
-            }
             if (string.IsNullOrWhiteSpace(txtSchedulePath.Text))
             {
                 MessageBox.Show("Please enter your schedule path.", "Missing Data", MessageBoxButton.OK, MessageBoxImage.Error);
                 return false;
             }
-
+            if(tmeDelay.Value == null)
+            {
+                MessageBox.Show("Please the delay between checks.", "Missing Data", MessageBoxButton.OK, MessageBoxImage.Error);
+                return false;
+            }
             //login
             var testUser = await RegnewUser.Login(txtUserName.Text, txtPassword.Password, false);
             if (testUser is null)
@@ -113,6 +110,14 @@ namespace WindowsUI
             catch (Exception)
             {
                 MessageBox.Show("Corrupt Schedule file.", "Corrupt File", MessageBoxButton.OK, MessageBoxImage.Error);
+                return false;
+            }
+
+            //verify that the delay is not more than 5000ms
+            if(tmeDelay.Value.Value.TotalMilliseconds > 5000 &&
+                MessageBox.Show("The delay between the checks is too large.\r\nDo you want to proceed ?",
+                "Propably Invalid Data", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.No)
+            {
                 return false;
             }
             return true;

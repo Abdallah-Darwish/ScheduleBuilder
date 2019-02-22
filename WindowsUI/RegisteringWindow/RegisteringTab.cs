@@ -13,25 +13,23 @@ namespace WindowsUI
 {
     public partial class RegisteringWindow
     {
-        private Timer _untilLoginTimer, _untilAttackTimer;
-        private TimeSpan _untilLoginTime, _untilAttackTime;
+        private Timer _regestrationStatusTimer;
 
-        private readonly TimeSpan DelayBetweenLoginAndAttack = new TimeSpan(0, 1, 0), UntilLoginTimerPeriod = new TimeSpan(0, 0, 1), UntilAttackTimerPeriod = new TimeSpan(0, 0, 0, 0, 500);
         private RegnewUser _user;
 
         private ObservableCollection<UClassClassesListModel> _lstClassesModels = new ObservableCollection<UClassClassesListModel>();
         void StopProcess()
         {
-            _untilLoginTimer?.Dispose();
-            _untilAttackTimer?.Dispose();
-            _untilLoginTime = _untilAttackTime = TimeSpan.Zero;
+            _regestrationStatusTimer?.Dispose();
+            //just to ensure that the timer has stopped
+            Thread.Sleep(200);
             _user = null;
 
             Dispatcher.Invoke(() =>
             {
                 _lstClassesModels.Clear();
-                lblLoginCountdown.Content = "Until login:";
-                lblRegisterCountdown.Content = "Until attack:";
+                lblRegestrationStatus.Content = "Unknown";
+                lblRegestrationStatus.Foreground = Brushes.Orange;
                 tabInfo.IsEnabled = true;
                 btnStartProcess.IsEnabled = true;
                 btnStopProcess.IsEnabled = true;
@@ -42,12 +40,10 @@ namespace WindowsUI
         {
             Dispatcher.Invoke(() =>
             {
-                _untilLoginTimer?.Dispose();
-                _untilAttackTimer?.Dispose();
-                _untilLoginTime = _untilAttackTime = TimeSpan.Zero;
+                _regestrationStatusTimer?.Dispose();
                 _user = null;
-                lblLoginCountdown.Content = "Until login:";
-                lblRegisterCountdown.Content = "Until attack:";
+                lblRegestrationStatus.Content = "Unknown";
+                lblRegestrationStatus.Foreground = Brushes.Orange;
                 tabInfo.IsEnabled = true;
                 btnStartProcess.IsEnabled = true;
                 btnStopProcess.IsEnabled = true;
@@ -56,7 +52,6 @@ namespace WindowsUI
         }
         void UClassRegisterationNotificationHandler(UClassRegisterationNotification notification)
         {
-
             Brush foregroundBrush = default;
             string status = default;
             switch (notification.Type)
@@ -93,9 +88,13 @@ namespace WindowsUI
                 classModel.StatusForegroundBrush = foregroundBrush;
             });
         }
-        async Task LoginAndSetup()
+        async Task StartChecking()
         {
-            Dispatcher.Invoke(() => lblLoginCountdown.Content = "Until login: 00:00");
+            Dispatcher.Invoke(() =>
+            {
+                lblRegestrationStatus.Content = "Unknown";
+                lblRegestrationStatus.Foreground = Brushes.Orange;
+            });
             _user = await RegnewUser.Login(Dispatcher.Invoke(() => txtUserName.Text), Dispatcher.Invoke(() => txtPassword.Password), false);
             if (_user is null)
             {
@@ -107,7 +106,7 @@ namespace WindowsUI
             {
                 _lstClassesModels.Clear();
                 USchedule schedule = await USchedule.FromFile(txtSchedulePath.Text);
-                foreach (var cls in schedule.Classes)
+                foreach (var cls in schedule.Classes.OrderByDescending(c => c.Capacity - c.NumberOfRegisteredStudents))
                 {
                     var classModel = new UClassClassesListModel(cls)
                     {
@@ -117,49 +116,37 @@ namespace WindowsUI
                     _lstClassesModels.Add(classModel);
                 }
             });
+            _regestrationStatusTimer = new Timer(RegestrationStatusTimerCallback, null, TimeSpan.Zero, tmeDelay.Value.Value);
         }
-        void UntilLoginTimerCallback(object __X__)
+        void RegestrationStatusTimerCallback(object __X__)
         {
-            _untilLoginTime -= UntilLoginTimerPeriod;
-            if (_untilLoginTime > TimeSpan.Zero)
+            var checkingTask = _user.CanRegisterClasses();
+            checkingTask.Wait();
+            if (checkingTask.Result)
             {
-                Dispatcher.Invoke(() => lblLoginCountdown.Content = $"Until login: {_untilLoginTime:mm\\:ss}");
+                _regestrationStatusTimer.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+                _regestrationStatusTimer.Dispose();
+                Attack();
             }
             else
             {
-                _untilLoginTimer.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
-                _untilLoginTimer.Dispose();
-
-                LoginAndSetup();
+                Dispatcher.Invoke(() =>
+                {
+                    lblRegestrationStatus.Content = "Closed";
+                    lblRegestrationStatus.Foreground = Brushes.Red;
+                });
             }
         }
         void Attack()
         {
             Dispatcher.Invoke(() =>
             {
-                lblLoginCountdown.Content = "Until login: 00:00";
-                lblRegisterCountdown.Content = "Until attack: 00:00";
+                lblRegestrationStatus.Content = "Open";
+                lblRegestrationStatus.Foreground = Brushes.Green;
                 btnStopProcess.IsEnabled = false;
             });
             var notificationsSubject = Observer.Create<UClassRegisterationNotification>(UClassRegisterationNotificationHandler, CompleteRegistration);
             _user.RegisterClasses(notificationsSubject, _lstClassesModels.Select(m => m.Source));
-        }
-        void UntilAttackTimerCallback(object __X__)
-        {
-            _untilAttackTime -= UntilAttackTimerPeriod;
-            if (_untilAttackTime > TimeSpan.Zero)
-            {
-                Dispatcher.Invoke(() => lblRegisterCountdown.Content = $"Until attack: {_untilAttackTime:mm\\:ss}");
-            }
-            else
-            {
-                _untilAttackTimer?.Change(Timeout.Infinite, Timeout.Infinite);
-                _untilLoginTimer?.Dispose();
-                _untilAttackTimer.Dispose();
-
-                Dispatcher.Invoke(() => lblRegisterCountdown.Content = "Until attack: 00:00");
-                Attack();
-            }
         }
         void InitializeRegisteringTab()
         {
@@ -174,25 +161,7 @@ namespace WindowsUI
             btnStartProcess.IsEnabled = false;
             btnStopProcess.IsEnabled = true;
 
-            TimeSpan attackTime = tmeStartTime.Value.Value.ToTimeSpan();
-            attackTime = new TimeSpan(attackTime.Hours, attackTime.Minutes, 0);
-            if (DateTime.Now.ToTimeSpan() >= attackTime || (attackTime - DateTime.Now.ToTimeSpan()) <= DelayBetweenLoginAndAttack)
-            {
-                if (attackTime > DateTime.Now.ToTimeSpan())
-                {
-                    var waitTime = attackTime - DateTime.Now.ToTimeSpan();
-                    if (waitTime > TimeSpan.Zero) { await Task.Delay(waitTime); }
-                }
-                await LoginAndSetup();
-                Attack();
-            }
-            else
-            {
-                _untilAttackTime = attackTime - DateTime.Now.ToTimeSpan() + TimeSpan.FromSeconds(2);
-                _untilLoginTime = _untilAttackTime - DelayBetweenLoginAndAttack;
-                _untilLoginTimer = new Timer(UntilLoginTimerCallback, null, TimeSpan.Zero, UntilLoginTimerPeriod);
-                _untilAttackTimer = new Timer(UntilAttackTimerCallback, null, TimeSpan.Zero, UntilAttackTimerPeriod);
-            }
+            await StartChecking();
         }
         private void BtnStopProcess_Click(object sender, RoutedEventArgs e)
         {

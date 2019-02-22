@@ -29,7 +29,12 @@ namespace ScheduleBuilder.Core
         private RegnewUser() { }
 
         public string Name { get; private set; }
-        public bool CanRegisterClasses { get; private set; }
+        public async Task<bool> CanRegisterClasses()
+        {
+            var registrationPageSource = await Client.GetStringAsync(RegisteredCoursesUri);
+            var resultBoxColor = ParseResultBoxColor(registrationPageSource);
+            return resultBoxColor != ResultBoxColor.Unknown && resultBoxColor != ResultBoxColor.Red;
+        }
 
         [IgnoreDataMember]
         public RegnewClient Client { get; } = RegnewClient.Create();
@@ -94,8 +99,6 @@ namespace ScheduleBuilder.Core
             string firstRegistrationPageSource = await user.Client.GetStringAsync(RegisteredCoursesUri);
             if (firstRegistrationPageSource.Length > 600)
             {
-                //TODO handle regestration is not open
-                user.CanRegisterClasses = ParseResultBoxColor(firstRegistrationPageSource) != ResultBoxColor.Red;
                 user.Name = rgx_userName.Match(firstRegistrationPageSource).Groups[1].Value;
                 var registrationPage = new StudentRegistrationPage(firstRegistrationPageSource);
                 await registrationPage.ParseRegisteredClasses();
@@ -145,7 +148,6 @@ namespace ScheduleBuilder.Core
             {
                 var cookies = user.Client.Cookies.GetCookies(RegnewClient.PsutDomainUri).OfType<Cookie>().ToArray();
                 user.AvilableClasses = new List<UClass>();
-                user.CanRegisterClasses = false;
                 string indexPageSource = "";
                 using (var indexPageResponse = await user.Client.GetAsync(RegnewClient.IndexPageUri))
                 {
