@@ -8,14 +8,14 @@ namespace ScheduleBuilder.Core
     {
         Processing, Succeeded, SucceededAfterConfirmation, Failed, RequiredConfirmation, ClassIsFullOrDoesntExist
     }
-    public struct UClassRegisterationNotification
+    public readonly struct UClassRegisterationNotification
     {
         public UClassRegisterationNotification(UClassRegisterationNotificationType type, UClass cls)
         {
             Class = cls;
             Type = type;
         }
-        public UClassRegisterationNotificationType Type { get; }
-        public UClass Class { get; }
+        public readonly UClassRegisterationNotificationType Type;
+        public readonly UClass Class;
     }
 }

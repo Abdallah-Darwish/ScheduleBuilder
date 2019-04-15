@@ -55,5 +55,12 @@ namespace ScheduleBuilder.Core.Parsing
             };
             return new RegnewClient(handler, cookies);
         }
+
+        public StringContent CreateStringContent(string content)
+        {
+            var result = new StringContent(content, Encoding.UTF8);
+            result.Headers.ContentType = new MediaTypeHeaderValue("application/x-www-form-urlencoded") { CharSet = "utf-8" };
+            return result;
+        }
     }
 }

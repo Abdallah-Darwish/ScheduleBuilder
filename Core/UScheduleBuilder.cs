@@ -22,8 +22,18 @@ namespace ScheduleBuilder.Core
         public int MinFinancialHours { get; set; }
         public int MaxFinancialHours { get; set; }
 
+        /// <summary>
+        /// The classes that are used to build the schedules
+        /// </summary>
         private UClass[] _buildClasses;
+        /// <summary>
+        /// The built schedules from <see cref="_buildClasses"/>
+        /// </summary>
         private List<USchedule> _builtSchedules;
+
+        /// <summary>
+        /// The temporary schedule thats used to build the schedules
+        /// </summary>
         USchedule _buildingSchedule;
         //A fucked up dynamic
         //more like a brute-force
@@ -70,7 +80,8 @@ namespace ScheduleBuilder.Core
 
 
             _buildClasses = Classes
-            .Where(a => a.Days.Except(Days.AsEnumerable()).Any() == false && a.StartTime >= MinStartTime && a.EndTime <= MaxEndTime)
+            .Where(c => c.Days.Except(Days.AsEnumerable()).Any() == false)
+            .Where(c => c.StartTime >= MinStartTime && c.EndTime <= MaxEndTime)
             .Where(c => Breaks.Where(b => c.Intersects(b)).Any() == false)
             .OrderBy(a => a.StartTime).ToArray();
             _builtSchedules = new List<USchedule>();
@@ -78,10 +89,11 @@ namespace ScheduleBuilder.Core
             BuildFrom(0);
 
             var result = _builtSchedules
+             //Filter the schedules and take the ones that fit our conditions
             .Where(s => s.HasCourses(ObligatoryCourses))
-            //really fucked up
             .Where(s => s.FirstStartTime >= MinStartTime && s.FirstStartTime <= MaxStartTime)
             .Where(s => s.LastEndTime >= MinEndTime && s.LastEndTime <= MaxEndTime)
+            
             .OrderBy(c => c.Days.Count())
             .ThenBy(c => c.MaximumBreaksTotal)
             .ThenByDescending(c => c.FinancialHours)

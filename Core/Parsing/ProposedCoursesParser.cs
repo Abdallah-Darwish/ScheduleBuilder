@@ -64,25 +64,22 @@ namespace ScheduleBuilder.Core.Parsing
                 //pager will be null when we reach the last page
                 while (pager != null)
                 {
-                    StringContent content = new StringContent($"ScriptManager1=UpdatePanel1%7C{WebUtility.UrlEncode(pager)}" +
+                    StringContent content = _regnewClient.CreateStringContent($"ScriptManager1=UpdatePanel1%7C{WebUtility.UrlEncode(pager)}" +
 $"&ddlStudyYear={year}" +
 $"&ddlStudySemister={(int)semester}" +
-$"&ddlCollege=-99" +
-$"&DDLDiv=-99" +
-$"&tbCourseNo=" +
-$"&ddlQualifType=-99" +
-$"&tbCourseName=" +
-$"&ddlMajors=-99" +
-$"&ddlCourseType=-99" +
-$"&ddlLecNo=-99" +
-$"&ddlOrderBy=-99" +
-$"&__ASYNCPOST=true" +
+"&ddlCollege=-99" +
+"&DDLDiv=-99" +
+"&tbCourseNo=" +
+"&ddlQualifType=-99" +
+"&tbCourseName=" +
+"&ddlMajors=-99" +
+"&ddlCourseType=-99" +
+"&ddlLecNo=-99" +
+"&ddlOrderBy=-99" +
 $"&__EVENTTARGET={pager}" +
 $"&__EVENTARGUMENT={classesPage.EncodedEventTarget}" +
-$"&__LASTFOCUS={classesPage.EncodedLastFocus}" +
-$"&__VIEWSTATE={classesPage.EncodedViewState}" +
-$"&__EVENTVALIDATION={classesPage.EncodedEventValidation}", Encoding.UTF8);
-                    content.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/x-www-form-urlencoded") { CharSet = "utf-8" };
+classesPage.EncodedHiddenFields);
+                    
                     using (var regnewResponseMessage = await _regnewClient.PostAsync(ProposedCoursesUri, content))
                     {
                         regnewResponseMessage.EnsureSuccessStatusCode();

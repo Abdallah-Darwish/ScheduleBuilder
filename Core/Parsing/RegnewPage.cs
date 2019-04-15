@@ -26,7 +26,7 @@ namespace ScheduleBuilder.Core.Parsing
             rgx_responseViewStateGenerator = new Regex("hiddenField\\|__VIEWSTATEGENERATOR\\|([^\\|]+)", GlobalRegexOptions.Value),
             rgx_responsePreviousPage = new Regex("hiddenField\\|__PREVIOUSPAGE\\|([^\\|]+)", GlobalRegexOptions.Value);
 
-       
+
         public string ViewState { get; private set; }
         public string EventValidation { get; private set; }
         public string EventTarget { get; private set; }
@@ -35,13 +35,21 @@ namespace ScheduleBuilder.Core.Parsing
         public string ViewStateGenerator { get; private set; }
         public string PreviousPage { get; set; }
 
-        public string EncodedViewState { get; private set; }
-        public string EncodedEventValidation { get; private set; }
-        public string EncodedEventTarget { get; private set; }
-        public string EncodedEventArgument { get; private set; }
-        public string EncodedLastFocus { get; private set; }
-        public string EncodedViewStateGenerator { get; private set; }
-        public string EncodedPreviousPage { get; set; }
+        public string EncodedViewState => WebUtility.UrlEncode(ViewState);
+        public string EncodedEventValidation => WebUtility.UrlEncode(EventValidation);
+        public string EncodedEventTarget => WebUtility.UrlEncode(EventTarget);
+        public string EncodedEventArgument => WebUtility.UrlEncode(EventArgument);
+        public string EncodedLastFocus => WebUtility.UrlEncode(LastFocus);
+        public string EncodedViewStateGenerator => WebUtility.UrlEncode(ViewStateGenerator);
+        public string EncodedPreviousPage => WebUtility.UrlEncode(PreviousPage);
+
+        public string EncodedHiddenFields => 
+            $"&__LASTFOCUS={EncodedLastFocus}"
+            + $"&__VIEWSTATE={EncodedViewState}"
+            + $"&__VIEWSTATEGENERATOR={EncodedViewStateGenerator}"
+            + $"&__EVENTVALIDATION={EncodedEventValidation}"
+            + $"&__PREVIOUSPAGE={EncodedPreviousPage}"
+            + "&__ASYNCPOST=true";
 
         private void ParsePageTokens()
         {
@@ -70,14 +78,6 @@ namespace ScheduleBuilder.Core.Parsing
                     PreviousPage = previousPageMatch.Groups[1].Value;
                 }
             }
-            EncodedViewState = WebUtility.UrlEncode(ViewState);
-            EncodedViewStateGenerator = WebUtility.UrlEncode(ViewStateGenerator);
-            EncodedEventValidation = WebUtility.UrlEncode(EventValidation);
-            EncodedEventArgument = WebUtility.UrlEncode(EventArgument);
-            EncodedEventTarget = WebUtility.UrlEncode(EventTarget);
-            EncodedLastFocus = WebUtility.UrlEncode(LastFocus);
-            EncodedPreviousPage = WebUtility.UrlEncode(PreviousPage);
-
         }
 
         protected string _pageSource = null;

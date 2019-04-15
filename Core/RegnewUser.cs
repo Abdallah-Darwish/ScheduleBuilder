@@ -56,47 +56,44 @@ namespace ScheduleBuilder.Core
             }
         }
 
+
         /// <summary>
         /// Creats a <see cref="RegnewUser"/> object and logs him in.
         /// </summary>
         /// <param name="userName">The name of the <see cref="RegnewUser"/>(usually his id).</param>
         /// <param name="password">password of the <see cref="RegnewUser"/></param>
         /// <param name="parseAvilableClasses">Whether you want to parse the classes that the user can register or not.</param>
-        /// <returns></returns>
+        /// <returns><see cref="RegnewUser"/> if the user is logged-in successfuly or <see cref="null"/> otherwise.</returns>
         public static async Task<RegnewUser> Login(string userName, string password, bool parseAvilableClasses)
         {
             var user = new RegnewUser();
             var regnewPage = new RegnewPage(await user.Client.GetStringAsync(RegnewClient.PsutDomainUri));
 
-            using (StringContent loginRequestContent = new StringContent(
+            using (StringContent loginRequestContent = user.Client.CreateStringContent(
                 "__EVENTTARGET=btnLogin" +
                 "&__EVENTARGUMENT=" +
-                $"&__LASTFOCUS={regnewPage.EncodedLastFocus}" +
-                $"&__VIEWSTATE={regnewPage.EncodedViewState}" +
-                $"&__EVENTVALIDATION={regnewPage.EncodedEventValidation}" +
-                $"&__PREVIOUSPAGE={regnewPage.EncodedPreviousPage}" +
-                $"&__VIEWSTATEGENERATOR={regnewPage.EncodedViewStateGenerator}" +
+                regnewPage.EncodedHiddenFields +
                 $"&tbUsername={WebUtility.UrlEncode(userName)}" +
                 $"&tbPsw={WebUtility.UrlEncode(password)}" +
-                $"&CbRememberMe=on", Encoding.UTF8))
+                $"&CbRememberMe=on"))
             {
-                loginRequestContent.Headers.ContentType = new MediaTypeHeaderValue("application/x-www-form-urlencoded") { CharSet = "utf-8" };
                 using (var loginResponse = await user.Client.PostAsync($"https://{RegnewClient.PsutDomainText}/Login.aspx", loginRequestContent))
                 {
                     loginResponse.EnsureSuccessStatusCode();
                     //In case the response length is bigger than 1000 this means that the login credintials are invalid
                     if (loginResponse.Content.Headers.ContentLength > 1000)
                     {
-
                         user.Dispose();
                         return null;
                     }
                 }
             }
-            
+
             //We must Request this link to get authentication cookies
             await user.Client.GetAsync($@"https://{RegnewClient.PsutDomainText}/WaitingInfo/WaitingList.aspx");
             string firstRegistrationPageSource = await user.Client.GetStringAsync(RegisteredCoursesUri);
+
+            //check if the regestration page is working or not!
             if (firstRegistrationPageSource.Length > 600)
             {
                 user.Name = rgx_userName.Match(firstRegistrationPageSource).Groups[1].Value;
@@ -113,28 +110,12 @@ namespace ScheduleBuilder.Core
                     await registrationPage.ParseAvilableClasses();
                     avilableClasses.AddRange(registrationPage.AvilableClasses);
                     if (registrationPage.PageNumber == registrationPage.LastPageNumber) { break; }
-                    nextPageRequestContent = new StringContent(
-    "ctl00%24toolkitScriptMaster=ctl00%24ContentPlaceHolder1%24UpdatePanel1%7Cctl00%24ContentPlaceHolder1%24gvRegistrationCoursesSchedule"
-    + "&toolkitScriptMaster_HiddenField="
-    + registrationPage.HiddenFieldsText
-    + "&ctl00%24ContentPlaceHolder1%24ddlCourseType=-99"
-    + "&ctl00%24ContentPlaceHolder1%24ddlCourseLevel=-99"
-    + "&ctl00%24ContentPlaceHolder1%24ddlCourseName=-99"
-    + "&ctl00%24ContentPlaceHolder1%24TxtCourseNo="
-    + "&ctl00%24ContentPlaceHolder1%24ddlDay=-99"
-    + "&ctl00%24ContentPlaceHolder1%24ddlTime=-99"
-    + "&ctl00%24ContentPlaceHolder1%24ddlShowRemainOnly=2"
-    + "&ctl00%24ContentPlaceHolder1%24ddlHideClosedSections=2"
-    + "&ctl00%24lbllang=ar-JO"
-    + "&__EVENTTARGET=ctl00%24ContentPlaceHolder1%24gvRegistrationCoursesSchedule"
-    + $"&__EVENTARGUMENT=Page%24{registrationPage.PageNumber + 1}"
-    + $"&__LASTFOCUS={registrationPage.EncodedLastFocus}"
-    + $"&__VIEWSTATE={registrationPage.EncodedViewState}"
-    + $"&__VIEWSTATEGENERATOR={registrationPage.EncodedViewStateGenerator}"
-    + $"&__EVENTVALIDATION={registrationPage.EncodedEventValidation}"
-    + "&__ASYNCPOST=true"
-    , Encoding.UTF8);
-                    nextPageRequestContent.Headers.ContentType = new MediaTypeHeaderValue("application/x-www-form-urlencoded") { CharSet = "utf-8" };
+                
+                    nextPageRequestContent = user.Client.CreateStringContent(
+                        registrationPage.GetInputFileds("ctl00%24ContentPlaceHolder1%24UpdatePanel1%7Cctl00%24ContentPlaceHolder1%24gvRegistrationCoursesSchedule"
+                        , "ctl00%24ContentPlaceHolder1%24gvRegistrationCoursesSchedule"
+                        , $"Page%24{registrationPage.PageNumber + 1}"));
+
                     using (var nextPageResponse = await user.Client.PostAsync(RegisteredCoursesUri, nextPageRequestContent))
                     {
                         nextPageResponse.EnsureSuccessStatusCode();
@@ -159,11 +140,10 @@ namespace ScheduleBuilder.Core
         }
 
 
-
-        /// <returns>The registered classes.</returns>
         public async Task RegisterClasses(IObserver<UClassRegisterationNotification> processObserver, IEnumerable<UClass> classes)
         {
             StudentRegistrationPage registrationPage = new StudentRegistrationPage(await Client.GetStringAsync(RegisteredCoursesUri));
+
             var alreadyRegisteredClasses = RegisteredClasses.Intersect(classes);
             foreach (var cls in alreadyRegisteredClasses)
             {
@@ -173,31 +153,12 @@ namespace ScheduleBuilder.Core
             foreach (var cls in classes.Except(RegisteredClasses))
             {
                 processObserver.OnNext(new UClassRegisterationNotification(UClassRegisterationNotificationType.Processing, cls));
+
                 //Find the course
-                using (StringContent findCourseRequestContent = new StringContent(
-"ctl00%24toolkitScriptMaster=ctl00%24ContentPlaceHolder1%24UpdatePanel1%7Cctl00%24ContentPlaceHolder1%24btnSearch"
-+ "&toolkitScriptMaster_HiddenField="
-//+ registrationPage.HiddenFieldsText
-+ "&ctl00%24ContentPlaceHolder1%24ddlCourseType=-99"
-+ "&ctl00%24ContentPlaceHolder1%24ddlCourseLevel=-99"
-+ "&ctl00%24ContentPlaceHolder1%24ddlCourseName=-99"
-+ $"&ctl00%24ContentPlaceHolder1%24TxtCourseNo={cls.Course.Id}"
-+ "&ctl00%24ContentPlaceHolder1%24ddlDay=-99"
-+ "&ctl00%24ContentPlaceHolder1%24ddlTime=-99"
-+ "&ctl00%24ContentPlaceHolder1%24ddlShowRemainOnly=2"
-//set to true
-+ "&ctl00%24ContentPlaceHolder1%24ddlHideClosedSections=1"
-+ "&ctl00%24lbllang=ar-JO"
-+ "&__EVENTTARGET=ctl00%24ContentPlaceHolder1%24btnSearch"
-+ $"&__EVENTARGUMENT="
-+ $"&__LASTFOCUS={registrationPage.EncodedLastFocus}"
-+ $"&__VIEWSTATE={registrationPage.EncodedViewState}"
-+ $"&__VIEWSTATEGENERATOR={registrationPage.EncodedViewStateGenerator}"
-+ $"&__EVENTVALIDATION={registrationPage.EncodedEventValidation}"
-+ "&__ASYNCPOST=true"
-, Encoding.UTF8))
+                using (StringContent findCourseRequestContent = Client.CreateStringContent(
+                    registrationPage.GetInputFileds("ctl00%24ContentPlaceHolder1%24UpdatePanel1%7Cctl00%24ContentPlaceHolder1%24btnSearch"
+                    , "ctl00%24ContentPlaceHolder1%24btnSearch", txtCourseNum: cls.Course.Id.ToString())))
                 {
-                    findCourseRequestContent.Headers.ContentType = new MediaTypeHeaderValue("application/x-www-form-urlencoded") { CharSet = "utf-8" };
                     using (var findCourseResponse = await Client.PostAsync(RegisteredCoursesUri, findCourseRequestContent))
                     {
                         findCourseResponse.EnsureSuccessStatusCode();
@@ -220,29 +181,10 @@ namespace ScheduleBuilder.Core
                 await registrationPage.ParseClassesRegistrationEventTargets();
 
                 //register the class
-                using (StringContent registerCourseRequestContent = new StringContent(
-"ctl00%24toolkitScriptMaster=ctl00%24ContentPlaceHolder1%24UpdatePanel1%7Cctl00%24ContentPlaceHolder1%24gvRegistrationCoursesSchedule%24ctl02%24lbtnAddCourse"
-+ "&toolkitScriptMaster_HiddenField="
-//+ registrationPage.HiddenFieldsText
-+ "&ctl00%24ContentPlaceHolder1%24ddlCourseType=-99"
-+ "&ctl00%24ContentPlaceHolder1%24ddlCourseLevel=-99"
-+ "&ctl00%24ContentPlaceHolder1%24ddlCourseName=-99"
-+ $"&ctl00%24ContentPlaceHolder1%24TxtCourseNo={cls.Course.Id}"
-+ "&ctl00%24ContentPlaceHolder1%24ddlDay=-99"
-+ "&ctl00%24ContentPlaceHolder1%24ddlTime=-99"
-+ "&ctl00%24ContentPlaceHolder1%24ddlShowRemainOnly=2"
-+ "&ctl00%24ContentPlaceHolder1%24ddlHideClosedSections=1"
-+ "&ctl00%24lbllang=ar-JO"
-+ $"&__EVENTTARGET={WebUtility.UrlEncode(registrationPage.AvilableClassesRegistrationEventTargets[cls.Id])}"
-+ $"&__EVENTARGUMENT="
-+ $"&__LASTFOCUS={registrationPage.EncodedLastFocus}"
-+ $"&__VIEWSTATE={registrationPage.EncodedViewState}"
-+ $"&__VIEWSTATEGENERATOR={registrationPage.EncodedViewStateGenerator}"
-+ $"&__EVENTVALIDATION={registrationPage.EncodedEventValidation}"
-+ "&__ASYNCPOST=true"
-    , Encoding.UTF8))
+                using (StringContent registerCourseRequestContent = Client.CreateStringContent(
+                    registrationPage.GetInputFileds("ctl00%24ContentPlaceHolder1%24UpdatePanel1%7Cctl00%24ContentPlaceHolder1%24gvRegistrationCoursesSchedule%24ctl02%24lbtnAddCourse"
+                    , WebUtility.UrlEncode(registrationPage.AvilableClassesRegistrationEventTargets[cls.Id]), txtCourseNum: cls.Course.Id.ToString())))
                 {
-                    registerCourseRequestContent.Headers.ContentType = new MediaTypeHeaderValue("application/x-www-form-urlencoded") { CharSet = "utf-8" };
                     using (var registerCourseResponse = await Client.PostAsync(RegisteredCoursesUri, registerCourseRequestContent))
                     {
                         registerCourseResponse.EnsureSuccessStatusCode();
@@ -262,28 +204,10 @@ namespace ScheduleBuilder.Core
                                 processObserver.OnNext(new UClassRegisterationNotification(UClassRegisterationNotificationType.RequiredConfirmation, cls));
 
                                 //This class was registered before and the site is asking if you want to take it again
-                                using (var confirmationRequestContent = new StringContent(
-"ctl00%24toolkitScriptMaster=ctl00%24ContentPlaceHolder1%24UpdatePanel1%7Cctl00%24ContentPlaceHolder1%24lbtnYes"
-+ "&toolkitScriptMaster_HiddenField="
-//+ registrationPage.HiddenFieldsText
-+ "&ctl00%24ContentPlaceHolder1%24ddlCourseType=-99"
-+ "&ctl00%24ContentPlaceHolder1%24ddlCourseLevel=-99"
-+ "&ctl00%24ContentPlaceHolder1%24ddlCourseName=-99"
-+ $"&ctl00%24ContentPlaceHolder1%24TxtCourseNo="
-+ "&ctl00%24ContentPlaceHolder1%24ddlDay=-99"
-+ "&ctl00%24ContentPlaceHolder1%24ddlTime=-99"
-+ "&ctl00%24ContentPlaceHolder1%24ddlShowRemainOnly=2"
-+ "&ctl00%24ContentPlaceHolder1%24ddlHideClosedSections=1"
-+ "&ctl00%24lbllang=ar-JO"
-+ $"&__EVENTTARGET=ctl00%24ContentPlaceHolder1%24lbtnYes"
-+ $"&__EVENTARGUMENT="
-+ $"&__LASTFOCUS={registrationPage.EncodedLastFocus}"
-+ $"&__VIEWSTATE={registrationPage.EncodedViewState}"
-+ $"&__VIEWSTATEGENERATOR={registrationPage.EncodedViewStateGenerator}"
-+ $"&__EVENTVALIDATION={registrationPage.EncodedEventValidation}"
-+ "&__ASYNCPOST=true", Encoding.UTF8))
+                                using (var confirmationRequestContent = Client.CreateStringContent(
+                                    registrationPage.GetInputFileds("ctl00%24ContentPlaceHolder1%24UpdatePanel1%7Cctl00%24ContentPlaceHolder1%24lbtnYes"
+                                    , "ctl00%24ContentPlaceHolder1%24lbtnYes")))
                                 {
-                                    confirmationRequestContent.Headers.ContentType = new MediaTypeHeaderValue("application/x-www-form-urlencoded") { CharSet = "utf-8" };
                                     using (var confirmationResponse = await Client.PostAsync(RegisteredCoursesUri, confirmationRequestContent))
                                     {
                                         confirmationResponse.EnsureSuccessStatusCode();

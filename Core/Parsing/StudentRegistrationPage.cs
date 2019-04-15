@@ -62,7 +62,7 @@ namespace ScheduleBuilder.Core.Parsing
         }
         private void ClearPageSource()
         {
-            if(AreAvilableClassesParsed && AreRegisteredClassesParsed && AreAvilableClassesRegistrationEventTargetsParsed)
+            if (AreAvilableClassesParsed && AreRegisteredClassesParsed && AreAvilableClassesRegistrationEventTargetsParsed)
             {
                 _pageSource = null;
             }
@@ -123,5 +123,22 @@ namespace ScheduleBuilder.Core.Parsing
                 return _parsingClassesRegistrationEventTargetsTask;
             }
         }
+
+        //TODO: Rename me!
+        public string GetInputFileds(string toolkitScriptMaster, string eventTarget, string eventArgument = "", string txtCourseNum = "") =>
+            $"ctl00%24toolkitScriptMaster={toolkitScriptMaster}"
+                + "&toolkitScriptMaster_HiddenField="
+                + HiddenFieldsText
+                + "&ctl00%24ContentPlaceHolder1%24ddlCourseType=-99"
+                + "&ctl00%24ContentPlaceHolder1%24ddlCourseLevel=-99"
+                + "&ctl00%24ContentPlaceHolder1%24ddlCourseName=-99"
+                + $"&ctl00%24ContentPlaceHolder1%24TxtCourseNo={txtCourseNum}"
+                + "&ctl00%24ContentPlaceHolder1%24ddlDay=-99"
+                + "&ctl00%24ContentPlaceHolder1%24ddlTime=-99"
+                + "&ctl00%24ContentPlaceHolder1%24ddlShowRemainOnly=2"
+                + "&ctl00%24ContentPlaceHolder1%24ddlHideClosedSections=2"
+                + "&ctl00%24lbllang=ar-JO"
+                + $"&__EVENTTARGET={eventTarget}"
+                + $"&__EVENTARGUMENT=Page%24{eventArgument}";
     }
 }
