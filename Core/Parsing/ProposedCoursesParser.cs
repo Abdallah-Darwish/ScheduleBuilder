@@ -59,12 +59,15 @@ namespace ScheduleBuilder.Core.Parsing
                 }
 
                 //The string that's sent in the request to indicate which page to recive.
-                string pager= "btnSearch";
+                string pager = "btnSearch";
 
                 //pager will be null when we reach the last page
                 while (pager != null)
                 {
+                    //DONT USE classesPage.EncodedHiddenFields cause it will include "__PREVIOUSPAGE" and that shit will fuck up the whole request
                     StringContent content = _regnewClient.CreateStringContent($"ScriptManager1=UpdatePanel1%7C{WebUtility.UrlEncode(pager)}" +
+$"&__EVENTTARGET={pager}" +
+classesPage.EncodedHiddenFields +
 $"&ddlStudyYear={year}" +
 $"&ddlStudySemister={(int)semester}" +
 "&ddlCollege=-99" +
@@ -76,10 +79,10 @@ $"&ddlStudySemister={(int)semester}" +
 "&ddlCourseType=-99" +
 "&ddlLecNo=-99" +
 "&ddlOrderBy=-99" +
-$"&__EVENTTARGET={pager}" +
-$"&__EVENTARGUMENT={classesPage.EncodedEventTarget}" +
-classesPage.EncodedHiddenFields);
-                    
+ "&");
+
+                    // content.Headers.Add("Referer", "https://regnew.psut.edu.jo/ProposedCoursesPublic.aspx");
+                    //_regnewClient.DefaultRequestHeaders.Referrer = ProposedCoursesUri;
                     using (var regnewResponseMessage = await _regnewClient.PostAsync(ProposedCoursesUri, content))
                     {
                         regnewResponseMessage.EnsureSuccessStatusCode();

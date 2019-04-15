@@ -22,7 +22,7 @@ namespace ScheduleBuilder.Core.Parsing
 
             //All of the headers were copied from fiddler and firefox!
             BaseAddress = new Uri($@"https://{PsutDomainText}/");
-            DefaultRequestHeaders.UserAgent.ParseAdd(@"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:61.0) Gecko/20100101 Firefox/61.0");
+            DefaultRequestHeaders.UserAgent.ParseAdd(@"Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:66.0) Gecko/20100101 Firefox/66.0");
             DefaultRequestHeaders.AcceptLanguage.ParseAdd(@"en-US,en;q=0.5");
             DefaultRequestHeaders.AcceptEncoding.ParseAdd("gzip, deflate, br");
             DefaultRequestHeaders.Add("X-Requested-With", "XMLHttpRequest");
@@ -31,6 +31,7 @@ namespace ScheduleBuilder.Core.Parsing
             DefaultRequestHeaders.Connection.Add("keep-alive");
             DefaultRequestHeaders.Accept.ParseAdd("*/*");
             DefaultRequestHeaders.Referrer = PsutDomainUri;
+            DefaultRequestHeaders.ExpectContinue = false;
         }
 
         public static RegnewClient Create(params Cookie[] additionalCookies)

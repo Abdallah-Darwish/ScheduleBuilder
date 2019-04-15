@@ -48,7 +48,8 @@ namespace ScheduleBuilder.Core.Parsing
             + $"&__VIEWSTATE={EncodedViewState}"
             + $"&__VIEWSTATEGENERATOR={EncodedViewStateGenerator}"
             + $"&__EVENTVALIDATION={EncodedEventValidation}"
-            + $"&__PREVIOUSPAGE={EncodedPreviousPage}"
+            //TODO: In-case of errors try removing the comment on next line
+            //+ $"&__PREVIOUSPAGE={EncodedPreviousPage}"
             + "&__ASYNCPOST=true";
 
         private void ParsePageTokens()

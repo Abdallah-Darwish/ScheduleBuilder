@@ -139,6 +139,7 @@ namespace ScheduleBuilder.Core.Parsing
                 + "&ctl00%24ContentPlaceHolder1%24ddlHideClosedSections=2"
                 + "&ctl00%24lbllang=ar-JO"
                 + $"&__EVENTTARGET={eventTarget}"
-                + $"&__EVENTARGUMENT=Page%24{eventArgument}";
+                + $"&__EVENTARGUMENT={eventArgument}"
+                + EncodedHiddenFields;
     }
 }
