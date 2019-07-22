@@ -8,7 +8,8 @@ namespace WindowsUI
 {
     class UScheduleListModel
     {
-        private readonly DaysEqualityComparer s_daysEqualityComparer = new DaysEqualityComparer();
+        private static readonly DaysEqualityComparer s_daysEqualityComparer = new DaysEqualityComparer();
+
         public USchedule Source { get; }
         public string Info { get; }
         public UClassListModel[] ClassesModels { get; }

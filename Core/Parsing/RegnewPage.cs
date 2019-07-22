@@ -1,22 +1,16 @@
-﻿using System;
+﻿using AngleSharp.Dom;
+using AngleSharp.Html.Dom;
+using AngleSharp.Html.Parser;
+using System;
 using System.Collections.Generic;
 using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
-
 namespace ScheduleBuilder.Core.Parsing
 {
     class RegnewPage
     {
         private static readonly Regex
-            //page* means its in the page source
-            rgx_pageEventValidation = new Regex("id=\"__EVENTVALIDATION\"\\svalue=\"([^\"]+)", GlobalRegexOptions.Value),
-            rgx_pageViewStateGenerator = new Regex("id=\"__VIEWSTATEGENERATOR\"\\svalue=\"([^\"]+)", GlobalRegexOptions.Value),
-            rgx_pageEventTraget = new Regex("id=\"__EVENTTARGET\"\\svalue=\"([^\"]+)", GlobalRegexOptions.Value),
-            rgx_pageEventArgument = new Regex("id=\"__EVENTARGUMENT\"\\svalue=\"([^\"]+)", GlobalRegexOptions.Value),
-            rgx_pageLastFocus = new Regex("id=\"__LASTFOCUS\"\\svalue=\"([^\"]+)", GlobalRegexOptions.Value),
-            rgx_pageViewState = new Regex("id=\"__VIEWSTATE\"\\svalue=\"([^\"]+)", GlobalRegexOptions.Value),
-            rgx_pagePreviousPage = new Regex("id=\"__PREVIOUSPAGE\"\\svalue=\"([^\"]+)", GlobalRegexOptions.Value),
             //response* means its recived via ajax
             rgx_responseEventValidation = new Regex("hiddenField\\|__EVENTVALIDATION\\|([^\\|]+)", GlobalRegexOptions.Value),
             rgx_responseViewState = new Regex("hiddenField\\|__VIEWSTATE\\|([^\\|]+)", GlobalRegexOptions.Value),
@@ -26,6 +20,8 @@ namespace ScheduleBuilder.Core.Parsing
             rgx_responseViewStateGenerator = new Regex("hiddenField\\|__VIEWSTATEGENERATOR\\|([^\\|]+)", GlobalRegexOptions.Value),
             rgx_responsePreviousPage = new Regex("hiddenField\\|__PREVIOUSPAGE\\|([^\\|]+)", GlobalRegexOptions.Value);
 
+
+        protected bool IsAjaxPage { get; }
 
         public string ViewState { get; private set; }
         public string EventValidation { get; private set; }
@@ -43,7 +39,7 @@ namespace ScheduleBuilder.Core.Parsing
         public string EncodedViewStateGenerator => WebUtility.UrlEncode(ViewStateGenerator);
         public string EncodedPreviousPage => WebUtility.UrlEncode(PreviousPage);
 
-        public string EncodedHiddenFields => 
+        public string EncodedHiddenFields =>
             $"&__LASTFOCUS={EncodedLastFocus}"
             + $"&__VIEWSTATE={EncodedViewState}"
             + $"&__VIEWSTATEGENERATOR={EncodedViewStateGenerator}"
@@ -55,15 +51,15 @@ namespace ScheduleBuilder.Core.Parsing
         private void ParsePageTokens()
         {
             //_pageSource must be trimmed for this to work
-            if (_pageSource.EndsWith("</html>"))
+            if (IsAjaxPage == false)
             {
-                ViewState = rgx_pageViewState.Match(_pageSource).Groups[1].Value;
-                ViewStateGenerator = rgx_pageViewStateGenerator.Match(_pageSource).Groups[1].Value;
-                EventValidation = rgx_pageEventValidation.Match(_pageSource).Groups[1].Value;
-                EventArgument = rgx_pageEventArgument.Match(_pageSource).Groups[1].Value;
-                EventTarget = rgx_pageEventTraget.Match(_pageSource).Groups[1].Value;
-                LastFocus = rgx_pageLastFocus.Match(_pageSource).Groups[1].Value;
-                PreviousPage = rgx_pagePreviousPage.Match(_pageSource).Groups[1].Value;
+                ViewState = _pageDocument.QuerySelector<IHtmlInputElement>("input#__VIEWSTATE").Value;
+                ViewStateGenerator = _pageDocument.QuerySelector<IHtmlInputElement>("input#__VIEWSTATEGENERATOR").Value;
+                EventValidation = _pageDocument.QuerySelector<IHtmlInputElement>("input#__EVENTVALIDATION").Value;
+                EventArgument = _pageDocument.QuerySelector<IHtmlInputElement>("input#__EVENTARGUMENT").Value;
+                EventTarget = _pageDocument.QuerySelector<IHtmlInputElement>("input#__EVENTTARGET").Value;
+                LastFocus = _pageDocument.QuerySelector<IHtmlInputElement>("input#__LASTFOCUS").Value;
+                PreviousPage = _pageDocument.QuerySelector<IHtmlInputElement>("input#__PREVIOUSPAGE")?.Value;
             }
             else
             {
@@ -82,14 +78,30 @@ namespace ScheduleBuilder.Core.Parsing
         }
 
         protected string _pageSource = null;
+        protected IHtmlDocument _pageDocument = null;
         public RegnewPage(string pageSource)
         {
             if (string.IsNullOrWhiteSpace(pageSource))
             {
                 throw new ArgumentException($"Argument {pageSource} can't be a null or a white space.", nameof(pageSource));
             }
+
             _pageSource = pageSource.Trim();
+            IsAjaxPage = !_pageSource.EndsWith("</html>");
+
+            string htmlPageSource;
+            if (IsAjaxPage)
+            {
+                int openDiv = pageSource.IndexOf("<div"), closeDiv = pageSource.LastIndexOf("</div>");
+                htmlPageSource = _pageSource.Substring(openDiv, (closeDiv + 5) - openDiv + 1);
+            }
+            else { htmlPageSource = _pageSource; }
+
+            var parser = new HtmlParser();
+            _pageDocument = parser.ParseDocument(htmlPageSource);
+
             ParsePageTokens();
+            _pageSource = htmlPageSource;
         }
 
     }

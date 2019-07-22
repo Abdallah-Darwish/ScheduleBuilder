@@ -1,19 +1,26 @@
-﻿using System;
+﻿using AngleSharp.Dom;
+using AngleSharp.Html.Dom;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-
 namespace ScheduleBuilder.Core.Parsing
 {
-    class StudentRegistrationPage : RegnewPage
+    enum ResultBoxColor
+    {
+        Green, Red, Yellow, Unknown
+    }
+    class StudentRegistrationPage : LoggedInPage
     {
         public StudentRegistrationPage(string pageSource) : base(pageSource)
         {
             ParsePage();
         }
+
+        public ResultBoxColor ResultBoxColor { get; private set; }
 
         public IReadOnlyList<UClass> AvilableClasses { get; private set; } = null;
         public IReadOnlyList<UClass> RegisteredClasses { get; private set; } = null;
@@ -35,30 +42,55 @@ namespace ScheduleBuilder.Core.Parsing
         readonly object _parsingClassesRegestrationEventTargetsLock = new object();
         Task _parsingClassesRegistrationEventTargetsTask;
 
-        private static readonly Regex
-            rgx_paging = new Regex("\\<tr class=\"paging\"\\>([\\s\\S]*?\\<\\/tr?\\>)", GlobalRegexOptions.Value),
-            rgx_lastPageNumber = new Regex("(\\d+)\\<\\/a\\>\\<\\/td\\>[^\\<]*<\\/tr", GlobalRegexOptions.Value),
-            rgx_pageNumber = new Regex("\\<span\\>(\\d+)\\<\\/span", GlobalRegexOptions.Value),
-            rgx_registeredCoursesTable = new Regex("_gvRegisteredCourses\"((?:[^\\>])*)\\>([\\s\\S]*?)\\<\\/table\\>", GlobalRegexOptions.Value),
-            rgx_avilableCoursesTable = new Regex("_gvRegistrationCoursesSchedule\"((?:[^\\>])*)\\>([\\s\\S]*?)\\<\\/table\\>", GlobalRegexOptions.Value),
-            rgx_hdnFinHours = new Regex("name=\"(?<name>ctl\\d+\\$ContentPlaceHolder\\d+\\$gvRegisteredCourses\\$ctl\\d+\\$hdnFinHours)\"[^>]+value=\"(?<value>\\d+)\"", GlobalRegexOptions.Value),
-            rgx_hdnPreRequsite = new Regex("name=\"(ctl\\d+\\$ContentPlaceHolder\\d+\\$gvRegisteredCourses\\$ctl\\d+\\$HdnPreRequsite)\"", GlobalRegexOptions.Value);
         public string HiddenFieldsText { get; private set; }
         private void ParsePage()
         {
+            var resultBoxDiv = _pageDocument.QuerySelector<IHtmlDivElement>(".ResultBox");
+            if (resultBoxDiv != null)
+            {
+                string resultBoxStyle = resultBoxDiv.GetAttribute("style");
+                resultBoxStyle = resultBoxStyle.Substring(resultBoxStyle.IndexOf(':') + 1);
+                resultBoxStyle = resultBoxStyle.Remove(resultBoxStyle.IndexOf(';'));
+                //Now resultBoxStyle conatins the color of the box
+                resultBoxStyle = resultBoxStyle.Trim();
+
+                switch (resultBoxStyle)
+                {
+                    case "green":
+                        ResultBoxColor = ResultBoxColor.Green;
+                        break;
+                    case "#cccc00":
+                        ResultBoxColor = ResultBoxColor.Yellow;
+                        break;
+                    case "#c00":
+                        ResultBoxColor = ResultBoxColor.Red;
+                        break;
+                    default:
+                        ResultBoxColor = ResultBoxColor.Unknown;
+                        break;
+                }
+            }
+            else { ResultBoxColor = ResultBoxColor.Unknown; }
+
+            var hdnFinHours = _pageDocument.QuerySelector<IHtmlInputElement>("input[type=hidden][id*=dnFinHours]");
+            var hdnPreRequsite = _pageDocument.QuerySelector<IHtmlInputElement>("input[type=hidden][id*=dnPreRequsite]");
             //The request with or without it is working
-            HiddenFieldsText = string.Join("&",
-                rgx_hdnFinHours.Matches(_pageSource).OfType<Match>()
-                .Select(m => $"{WebUtility.UrlEncode(m.Groups["name"].Value)}={WebUtility.UrlEncode(m.Groups["value"].Value)}")
-                .Concat(rgx_hdnPreRequsite.Matches(_pageSource).OfType<Match>().Select(m => $"{WebUtility.UrlEncode(m.Groups[1].Value)}=")));
+            if (hdnFinHours != null && hdnPreRequsite != null)
+            {
+                HiddenFieldsText = $"{WebUtility.UrlEncode(hdnFinHours.Name)}={WebUtility.UrlEncode(hdnFinHours.ValidationMessage)}&{WebUtility.UrlEncode(hdnPreRequsite.Name)}={WebUtility.UrlEncode(hdnPreRequsite.ValidationMessage)}";
+            }
+            else { HiddenFieldsText = string.Empty; }
 
-            string pagingPart = rgx_paging.Match(_pageSource).Groups[1].Value;
-            var pageNumberMatch = rgx_pageNumber.Match(pagingPart);
-            PageNumber = pageNumberMatch.Success ? int.Parse(pageNumberMatch.Groups[1].Value) : -1;
-
-            var lastPageNumberMatch = rgx_lastPageNumber.Match(pagingPart);
-            //In case its one page only the match will fail
-            LastPageNumber = lastPageNumberMatch.Success ? int.Parse(lastPageNumberMatch.Groups[1].Value) : PageNumber;
+            var pagesRow = _pageDocument.QuerySelector<IHtmlTableRowElement>("tr.paging");
+            if (pagesRow != null && pagesRow.Cells.Length > 0)
+            {
+                PageNumber = int.Parse(pagesRow.QuerySelector<IHtmlSpanElement>("td>span").TextContent);
+                LastPageNumber = int.Parse(pagesRow.Cells.Last().TextContent);
+            }
+            else
+            {
+                LastPageNumber = PageNumber = -1;
+            }
         }
         private void ClearPageSource()
         {
@@ -69,7 +101,7 @@ namespace ScheduleBuilder.Core.Parsing
         }
         private void InternalParseAvilableClasses()
         {
-            AvilableClasses = UClassParser.ParseClassesTable(rgx_avilableCoursesTable.Match(_pageSource).Groups[0].Value);
+            AvilableClasses = UClassParser.ParseClassesTable(_pageDocument.QuerySelector<IHtmlTableElement>("table[id*=RegistrationCoursesSchedule]"));
             AreAvilableClassesParsed = true;
             ClearPageSource();
         }
@@ -87,7 +119,7 @@ namespace ScheduleBuilder.Core.Parsing
 
         private void InternalParseRegisteredClasses()
         {
-            RegisteredClasses = UClassParser.ParseClassesTable(rgx_registeredCoursesTable.Match(_pageSource).Groups[0].Value);
+            RegisteredClasses = UClassParser.ParseClassesTable(_pageDocument.QuerySelector<IHtmlTableElement>("table[id*=RegisteredCourses]"));
             AreRegisteredClassesParsed = true;
             ClearPageSource();
         }
@@ -107,7 +139,7 @@ namespace ScheduleBuilder.Core.Parsing
         {
             await ParseAvilableClasses();
 
-            AvilableClassesRegistrationEventTargets = UClassParser.ParseRegestrationEventTargets(_pageSource);
+            AvilableClassesRegistrationEventTargets = UClassParser.ParseRegestrationEventTargets(_pageDocument.QuerySelector<IHtmlTableElement>("table[id*=RegistrationCoursesSchedule]"));
             AreAvilableClassesRegistrationEventTargetsParsed = true;
             ClearPageSource();
         }

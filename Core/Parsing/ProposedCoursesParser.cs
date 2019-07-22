@@ -65,7 +65,7 @@ namespace ScheduleBuilder.Core.Parsing
                 while (pager != null)
                 {
                     //DONT USE classesPage.EncodedHiddenFields cause it will include "__PREVIOUSPAGE" and that shit will fuck up the whole request
-                    StringContent content = _regnewClient.CreateStringContent($"ScriptManager1=UpdatePanel1%7C{WebUtility.UrlEncode(pager)}" +
+                    StringContent content = _regnewClient.CreateStringContent($"ScriptManager1=UpdatePanel1%7C{pager}" +
 $"&__EVENTTARGET={pager}" +
 classesPage.EncodedHiddenFields +
 $"&ddlStudyYear={year}" +

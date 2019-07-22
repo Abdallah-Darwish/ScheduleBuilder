@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -16,7 +17,7 @@ namespace ScheduleBuilder.Core.Parsing
             {
                 throw new ArgumentOutOfRangeException(nameof(pageNumber), pageNumber, $"Argument {nameof(pageNumber)} must be between [0, {int.MaxValue}].");
             }
-            Pager = pager ?? throw new ArgumentNullException(nameof(pager));
+            Pager = WebUtility.UrlEncode(pager ?? throw new ArgumentNullException(nameof(pager)));
             PageNumber = pageNumber;
 
         }

@@ -129,6 +129,9 @@ namespace ScheduleBuilder.Core
                 await classesStreamWriter.WriteAsync(JsonConvert.SerializeObject(classes)).ConfigureAwait(false);
             }
         }
+        /// <summary>
+        /// Merges the <see cref="Id"/> and <see cref="Section"/> to create a unique id for the class.
+        /// </summary>
         public static int Identify(int courseId, int classSectionNumber) => int.Parse(courseId.ToString() + classSectionNumber.ToString().PadLeft(2, '0'));
     }
 }

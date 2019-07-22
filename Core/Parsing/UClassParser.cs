@@ -1,35 +1,33 @@
-﻿using System;
+﻿using AngleSharp.Dom;
+using AngleSharp.Html.Dom;
+using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 
 namespace ScheduleBuilder.Core.Parsing
 {
     internal static class UClassParser
     {
-        private static readonly Regex
-            //Common
-            rgx_classes = new Regex("\\<tr\\sclass=\"GridView(?:Alternate)?RowStyle\"\\>((?:[\\s]|.)*?)\\<\\/tr\\>", GlobalRegexOptions.Value),
-            rgx_courseId = new Regex("lblGvCourseNo_\\d+\"\\>(\\d+)\\<", GlobalRegexOptions.Value),
-            rgx_courseName = new Regex("lblGvCourseNameAr?_\\d+\"\\>([^\\<]+)\\<", GlobalRegexOptions.Value),
-            rgx_classInstructor = new Regex("lblGvInstructorAr?_\\d+\"\\>([^\\<]+)\\<", GlobalRegexOptions.Value),
-            rgx_classSection = new Regex("lblGvSections_\\d+\"\\>(\\d+)\\<", GlobalRegexOptions.Value),
-            rgx_classDays = new Regex("lblGvDayAr?_\\d+\"\\>([^\\<]+)\\<", GlobalRegexOptions.Value),
+        private static readonly string
+            slc_classId = @"td>span[id*=CourseNo]",
+            slc_classSection = @"td>span[id*=Section]",
+            slc_classesTable = @"table[id*=Courses]";
 
+        private static readonly Regex
             //proposed courses page only
             rgx_classStartTime = new Regex("lblGvStartTime_\\d+\"\\>(?<hour>\\d+):(?<minute>\\d+)\\<", GlobalRegexOptions.Value),
             rgx_classEndTime = new Regex("lblGvEndTime_\\d+\"\\>(?<hour>\\d+):(?<minute>\\d+)\\<", GlobalRegexOptions.Value),
-            rgx_classCapacity = new Regex("lblGvMaxStNo_\\d+\"\\>(\\d+)\\<", GlobalRegexOptions.Value),
-            rgx_classRegisterdStudentsCount = new Regex("lblGvRegStNo_\\d+\"\\>(\\d+)\\<", GlobalRegexOptions.Value),
 
             //Registered courses page only
             rgx_registeredClassTime = new Regex("lblGvLecTime_\\d+\"\\>(?<startHour>\\d+):(?<startMinute>\\d+)\\s+(?<endHour>\\d+):(?<endMinute>\\d+)\\<", GlobalRegexOptions.Value),
             //rgx_registrationEventTarget = new Regex("lbtnAddCourse_\\d+\"\\shref=\"javascript:__doPostBack\\(\\&\\#39\\;([^\\&]+)", GlobalRegexOptions.Value),
 
             //avilable for regestration
-            rgx_avilableClassTime = new Regex("lblGvStartTime_\\d+\"\\>(?<startHour>\\d+):(?<startMinute>\\d+)\\s+(?<endHour>\\d+):(?<endMinute>\\d+)\\<", GlobalRegexOptions.Value),
-            rgx_registrationEventTarget = new Regex("lbtnAddCourse_\\d+\"\\shref=\"javascript:__doPostBack\\(\\&\\#39\\;([^\\&]+)", GlobalRegexOptions.Value);
+            rgx_avilableClassTime = new Regex("lblGvStartTime_\\d+\"\\>(?<startHour>\\d+):(?<startMinute>\\d+)\\s+(?<endHour>\\d+):(?<endMinute>\\d+)\\<", GlobalRegexOptions.Value);
 
         private static (TimeSpan StartTime, TimeSpan EndTime) ParseClassTime(string classSource)
         {
@@ -67,17 +65,17 @@ namespace ScheduleBuilder.Core.Parsing
             return (new TimeSpan(startTimeHour, startTimeMinute, 0), new TimeSpan(endTimeHour, endTimeMinute, 0));
 
         }
-        public static UClass ParseClass(string classSource, int classYear = 0, USemester classSemester = USemester.Unknown)
+        public static UClass ParseClass(IHtmlTableRowElement classRow, int classYear = 0, USemester classSemester = USemester.Unknown)
         {
-            int courseId = int.Parse(rgx_courseId.Match(classSource).Groups[1].Value);
-            string courseName = rgx_courseName.Match(classSource).Groups[1].Value;
-            string classInstructor = rgx_classInstructor.Match(classSource).Groups[1].Value;
-            int classSection = int.Parse(rgx_classSection.Match(classSource).Groups[1].Value);
-            string classDaysString = rgx_classDays.Match(classSource).Groups[1].Value;
+            int courseId = int.Parse(classRow.QuerySelector<IHtmlSpanElement>(slc_classId).TextContent);
+            string courseName = classRow.QuerySelector<IHtmlSpanElement>("td>span[id*=CourseName]").TextContent;
+            string classInstructor = classRow.QuerySelector<IHtmlSpanElement>("td>span[id*=Instructor]").TextContent;
+            int classSection = int.Parse(classRow.QuerySelector<IHtmlSpanElement>(slc_classSection).TextContent);
+            string classDaysString = classRow.QuerySelector<IHtmlSpanElement>("td>span[id*=Day]").TextContent;
             DayOfWeek[] classDays = DayOfWeekConverter.ToDays(classDaysString).ToArray();
-            var (classStartTime, classEndTime) = ParseClassTime(classSource);
-            int.TryParse(rgx_classCapacity.Match(classSource).Groups[1].Value, out int classCapacity);
-            int.TryParse(rgx_classRegisterdStudentsCount.Match(classSource).Groups[1].Value, out var classRegisterdStudentsCount);
+            var (classStartTime, classEndTime) = ParseClassTime(classRow.OuterHtml);
+            int.TryParse(classRow.QuerySelector<IHtmlSpanElement>("td>span[id*=MaxStNo]")?.TextContent, out int classCapacity);
+            int.TryParse(classRow.QuerySelector<IHtmlSpanElement>("td>span[id*=RegStNo]")?.TextContent, out int classRegisterdStudentsCount);
 
             //To detecet Labs
             int classFinancialHours = (int)((classDays.Length == 1 ? 1 : (classEndTime - classStartTime).TotalHours) * classDays.Length);
@@ -94,26 +92,30 @@ namespace ScheduleBuilder.Core.Parsing
                 capacity: classCapacity,
                 numberOfRegisteredStudents: classRegisterdStudentsCount);
         }
-        private static KeyValuePair<int, string> ParseClassIdAndRegistrationEventTarget(string classSource)
+        private static (int ClassId, string ClassRegistrationEventTarget) ParseClassIdAndRegistrationEventTarget(IHtmlTableRowElement classRow)
         {
-            int courseId = int.Parse(rgx_courseId.Match(classSource).Groups[1].Value);
-            int classSection = int.Parse(rgx_classSection.Match(classSource).Groups[1].Value);
-            string registrationEventTarget = rgx_registrationEventTarget.Match(classSource).Groups[1].Value;
-            return new KeyValuePair<int, string>(UClass.Identify(courseId, classSection), registrationEventTarget);
+            int courseId = int.Parse(classRow.QuerySelector<IHtmlSpanElement>(slc_classId).TextContent);
+            int classSection = int.Parse(classRow.QuerySelector<IHtmlSpanElement>(slc_classSection).TextContent);
+
+            string registrationAnchorHref = classRow.QuerySelector<IHtmlAnchorElement>("btnAddCourse").Href;
+            int hrefFirstQuoteIndex = registrationAnchorHref.IndexOf('\''), hrefSecondQuoteIndex = registrationAnchorHref.IndexOf('\'', hrefFirstQuoteIndex + 1);
+            string registrationEventTarget = registrationAnchorHref.Substring(hrefFirstQuoteIndex + 1, hrefSecondQuoteIndex - hrefFirstQuoteIndex - 1);
+
+            return (UClass.Identify(courseId, classSection), registrationEventTarget);
         }
-        public static UClass[] ParseClassesTable(string pageSource, int classYear = 0, USemester classSemester = USemester.Unknown)
+
+        public static UClass[] ParseClassesTable(IHtmlTableElement classesTable, int classYear = 0, USemester classSemester = USemester.Unknown)
         {
-            return rgx_classes.Matches(pageSource).OfType<Match>().Select(m => ParseClass(m.Groups[1].Value, classYear, classSemester)).ToArray();
+            var classes = new ConcurrentBag<UClass>();
+            Parallel.ForEach(classesTable.Rows.Skip(1), row => classes.Add(ParseClass(row, classYear, classSemester)));
+            return classes.ToArray();
         }
-        public static Dictionary<int, string> ParseRegestrationEventTargets(string pageSource)
+
+        public static Dictionary<int, string> ParseRegestrationEventTargets(IHtmlTableElement classesTable)
         {
-            var targets = rgx_classes.Matches(pageSource).OfType<Match>().Select(m => ParseClassIdAndRegistrationEventTarget(m.Groups[1].Value));
-            Dictionary<int, string> result = new Dictionary<int, string>();
-            foreach (var target in targets)
-            {
-                result.Add(target.Key, target.Value);
-            }
-            return result;
+            ConcurrentBag<(int ClassId, string ClassRegistrationEventTarget)> targets = new ConcurrentBag<(int, string)>();
+            Parallel.ForEach(classesTable.Rows.Skip(1), row => ParseClassIdAndRegistrationEventTarget(row));
+            return targets.ToDictionary(c => c.ClassId, c => c.ClassRegistrationEventTarget);
         }
     }
 }

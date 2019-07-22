@@ -16,23 +16,17 @@ namespace ScheduleBuilder.Core
 {
     public class RegnewUser : IDisposable
     {
-        private enum ResultBoxColor
-        {
-            Green, Red, Yellow, Unknown
-        }
+        
         private static readonly Uri RegisteredCoursesUri = new Uri($@"https://{RegnewClient.PsutDomainText}/StudentServices/StudentRegistration.aspx");
-
-        private static readonly Regex
-            rgx_userName = new Regex("\\<span\\s*id=\"lblLoggedUserName\"\\>([^\\<]+)", GlobalRegexOptions.Value),
-            rgx_resultBoxColor = new Regex("ResultBox\"\\s*style=\"color:([^\\;]+)", GlobalRegexOptions.Value);
 
         private RegnewUser() { }
 
         public string Name { get; private set; }
+        public DateTime LastLoginTime { get; private set; }
         public async Task<bool> CanRegisterClasses()
         {
-            var registrationPageSource = await Client.GetStringAsync(RegisteredCoursesUri);
-            var resultBoxColor = ParseResultBoxColor(registrationPageSource);
+            var registrationPage = new StudentRegistrationPage(await Client.GetStringAsync(RegisteredCoursesUri));
+            var resultBoxColor = registrationPage.ResultBoxColor;
             return resultBoxColor != ResultBoxColor.Unknown && resultBoxColor != ResultBoxColor.Red;
         }
 
@@ -44,21 +38,9 @@ namespace ScheduleBuilder.Core
 
         public IReadOnlyList<UClass> AvilableClasses { get; private set; }
 
-        private static ResultBoxColor ParseResultBoxColor(string src)
-        {
-            string resultBoxColor = rgx_resultBoxColor.Match(src).Groups[1].Value.ToLowerInvariant().Trim();
-            switch (resultBoxColor)
-            {
-                case "green": return ResultBoxColor.Green;
-                case "#cccc00": return ResultBoxColor.Yellow;
-                case "#c00": return ResultBoxColor.Red;
-                default: return ResultBoxColor.Unknown;
-            }
-        }
-
 
         /// <summary>
-        /// Creats a <see cref="RegnewUser"/> object and logs him in.
+        /// Creats a <see cref="RegnewUser"/> object and logs him/her in.
         /// </summary>
         /// <param name="userName">The name of the <see cref="RegnewUser"/>(usually his id).</param>
         /// <param name="password">password of the <see cref="RegnewUser"/></param>
@@ -96,8 +78,10 @@ namespace ScheduleBuilder.Core
             //check if the regestration page is working or not!
             if (firstRegistrationPageSource.Length > 600)
             {
-                user.Name = rgx_userName.Match(firstRegistrationPageSource).Groups[1].Value;
                 var registrationPage = new StudentRegistrationPage(firstRegistrationPageSource);
+                user.Name = registrationPage.Username;
+                user.LastLoginTime = registrationPage.LastLoginTime;
+
                 await registrationPage.ParseRegisteredClasses();
                 user._registeredClasses.AddRange(registrationPage.RegisteredClasses);
 
@@ -134,7 +118,7 @@ namespace ScheduleBuilder.Core
                 {
                     indexPageSource = await indexPageResponse.Content.ReadAsStringAsync();
                 }
-                user.Name = rgx_userName.Match(indexPageSource).Groups[1].Value;
+                user.Name = new LoggedInPage(indexPageSource).Username;
             }
             return user;
         }
@@ -190,16 +174,13 @@ namespace ScheduleBuilder.Core
                         registerCourseResponse.EnsureSuccessStatusCode();
                         using (var registerCourseResponseContent = registerCourseResponse.Content)
                         {
-                            string contentText = await registerCourseResponseContent.ReadAsStringAsync();
-                            var resultBoxColor = ParseResultBoxColor(contentText);
-                            registrationPage = new StudentRegistrationPage(contentText);
-                            contentText = null;
-                            if (resultBoxColor == ResultBoxColor.Green)
+                            registrationPage = new StudentRegistrationPage(await registerCourseResponseContent.ReadAsStringAsync());
+                            if (registrationPage.ResultBoxColor == ResultBoxColor.Green)
                             {
                                 _registeredClasses.Add(cls);
                                 processObserver.OnNext(new UClassRegisterationNotification(UClassRegisterationNotificationType.Succeeded, cls));
                             }
-                            else if (resultBoxColor == ResultBoxColor.Yellow)
+                            else if (registrationPage.ResultBoxColor == ResultBoxColor.Yellow)
                             {
                                 processObserver.OnNext(new UClassRegisterationNotification(UClassRegisterationNotificationType.RequiredConfirmation, cls));
 
@@ -213,11 +194,8 @@ namespace ScheduleBuilder.Core
                                         confirmationResponse.EnsureSuccessStatusCode();
                                         using (var confirmationResponseContent = confirmationResponse.Content)
                                         {
-                                            contentText = await confirmationResponseContent.ReadAsStringAsync();
-                                            resultBoxColor = ParseResultBoxColor(contentText);
-                                            registrationPage = new StudentRegistrationPage(contentText);
-                                            contentText = null;
-                                            if (resultBoxColor == ResultBoxColor.Green)
+                                            registrationPage = new StudentRegistrationPage(await confirmationResponseContent.ReadAsStringAsync());
+                                            if (registrationPage.ResultBoxColor == ResultBoxColor.Green)
                                             {
                                                 _registeredClasses.Add(cls);
                                                 processObserver.OnNext(new UClassRegisterationNotification(UClassRegisterationNotificationType.SucceededAfterConfirmation, cls));

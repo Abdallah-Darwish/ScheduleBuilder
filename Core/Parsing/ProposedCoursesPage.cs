@@ -1,11 +1,12 @@
-﻿using System;
+﻿using AngleSharp.Dom;
+using AngleSharp.Html.Dom;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
-
 namespace ScheduleBuilder.Core.Parsing
 {
     internal class ProposedCoursesPage : RegnewPage, IEquatable<ProposedCoursesPage>
@@ -32,26 +33,26 @@ namespace ScheduleBuilder.Core.Parsing
         readonly object _parsingClassesLock = new object();
         Task _parsingClassesTask;
 
-        private static readonly Regex
-            rgx_selectedYear = new Regex("\\<option\\sselected=\"selected\"\\svalue=\"(\\d{4})\"\\>\\d{4}\\s-\\s\\d{4}\\<", GlobalRegexOptions.Value),
-            rgx_selectedSemester = new Regex("\\<option\\sselected=\"selected\"\\svalue=\"(\\d)\">(الفصل\\sالأول|الفصل\\sالثاني|الفصل\\sالصيفي)\\<", GlobalRegexOptions.Value),
-            rgx_pager = new Regex("\\<a\\s*?id=\"rptPager_lnkPage_\\d+\"[^\\<]*(?<pager>rptPager\\$ctl\\d+\\$lnkPage)[^\\>]*\\>(?<pageNumber>\\d+)\\<\\/a\\>", GlobalRegexOptions.Value),
-            rgx_pageNumber = new Regex("\\<a\\s*?id=\"rptPager_lnkPage_\\d+\"\\s+class=\"aspNetDisabled\"[^\\>]*\\>(\\d+)\\<\\/a\\>", GlobalRegexOptions.Value);
-
         private void ParsePage()
         {
-            var pageNumberMatch = rgx_pageNumber.Match(_pageSource);
-            PageNumber = pageNumberMatch.Success ? int.Parse(pageNumberMatch.Groups[1].Value) : -1;
+            var pagers = _pageDocument.QuerySelectorAll<IHtmlAnchorElement>("a[id*=rptPager_lnkPage]").Where(p => p.Text.Contains('-') == false).ToArray();
+            PageNumber = int.Parse(pagers.FirstOrDefault(p => p.ClassName?.Equals("aspNetDisabled", StringComparison.OrdinalIgnoreCase) ?? false)?.Text ?? "-1");
 
-            AvailablePagers = rgx_pager.Matches(_pageSource).OfType<Match>().Select(m => new ProposedCoursesPager(int.Parse(m.Groups["pageNumber"].Value), m.Groups["pager"].Value)).ToArray();
-            SelectedSemester = (USemester)int.Parse(rgx_selectedSemester.Match(_pageSource).Groups[1].Value);
-            SelectedYear = int.Parse(rgx_selectedYear.Match(_pageSource).Groups[1].Value);
+            AvailablePagers = pagers.Select(p =>
+            {
+                if (string.IsNullOrWhiteSpace(p.Href)) { return new ProposedCoursesPager(int.Parse(p.Text), string.Empty); }
+                int firstDQuoteIndex = p.Href.IndexOf("\"");
+                int secondDQuoteIndex = p.Href.IndexOf("\"", firstDQuoteIndex + 1);
+                return new ProposedCoursesPager(int.Parse(p.Text), p.Href.Substring(firstDQuoteIndex + 1, secondDQuoteIndex - firstDQuoteIndex - 1));
+            }).ToArray();
+            SelectedSemester = (USemester)int.Parse(_pageDocument.QuerySelector<IHtmlSelectElement>(@"select[name=ddlStudySemister]").SelectedOptions.First().Value); ;
+            SelectedYear = int.Parse(_pageDocument.QuerySelector<IHtmlSelectElement>(@"select[name=ddlStudyYear]").SelectedOptions.First().Value);
         }
 
 
         private void InternalParseClasses()
         {
-            Classes = UClassParser.ParseClassesTable(_pageSource, SelectedYear, SelectedSemester);
+            Classes = UClassParser.ParseClassesTable(_pageDocument.QuerySelector<IHtmlTableElement>("table[id*=ProposedCoursesSchedule]"), SelectedYear, SelectedSemester);
             _pageSource = null;
             AreClassesParsed = true;
 
