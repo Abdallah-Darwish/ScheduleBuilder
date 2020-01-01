@@ -156,7 +156,7 @@ namespace ScheduleBuilder.Core
                 await registrationPage.ParseAvilableClasses();
 
                 //check if the requested class have space
-                if (registrationPage.AvilableClasses.Any(c => c.Id == cls.Id) == false)
+                if (registrationPage.AvilableClasses.Any(c => c.Id == cls.Id) == false || registrationPage.AvilableClasses.First().Capacity == registrationPage.AvilableClasses.First().NumberOfRegisteredStudents)
                 {
                     processObserver.OnNext(new UClassRegisterationNotification(UClassRegisterationNotificationType.ClassIsFullOrDoesntExist, cls));
                     continue;

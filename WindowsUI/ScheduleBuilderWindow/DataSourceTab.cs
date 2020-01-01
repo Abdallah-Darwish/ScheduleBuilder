@@ -23,7 +23,7 @@ namespace WindowsUI
             cbxSemester.SelectedIndex = 0;
 
 #if DEBUG
-            txtDataSource.Text = @"C:\Users\abdal\Desktop\Classes18S2.json";
+            txtDataSource.Text = @"C:\Users\abdal\Desktop\Classes19S1.json";
             btnSourceFile.IsChecked = true;
             btnReloadData.RaiseEvent(new RoutedEventArgs(ButtonBase.ClickEvent));
 #endif

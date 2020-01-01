@@ -124,8 +124,13 @@ namespace WindowsUI
             checkingTask.Wait();
             if (checkingTask.Result)
             {
-                _regestrationStatusTimer.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
-                _regestrationStatusTimer.Dispose();
+                try
+                {
+                    _regestrationStatusTimer?.Change(Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+                    _regestrationStatusTimer?.Dispose();
+                    _regestrationStatusTimer = null;
+                }
+                catch { }
                 Attack();
             }
             else

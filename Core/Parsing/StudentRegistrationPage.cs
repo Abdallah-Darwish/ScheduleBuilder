@@ -54,7 +54,7 @@ namespace ScheduleBuilder.Core.Parsing
                 //Now resultBoxStyle conatins the color of the box
                 resultBoxStyle = resultBoxStyle.Trim();
 
-                switch (resultBoxStyle)
+                switch (resultBoxStyle.ToLowerInvariant())
                 {
                     case "green":
                         ResultBoxColor = ResultBoxColor.Green;

@@ -97,7 +97,7 @@ namespace ScheduleBuilder.Core.Parsing
             int courseId = int.Parse(classRow.QuerySelector<IHtmlSpanElement>(slc_classId).TextContent);
             int classSection = int.Parse(classRow.QuerySelector<IHtmlSpanElement>(slc_classSection).TextContent);
 
-            string registrationAnchorHref = classRow.QuerySelector<IHtmlAnchorElement>("btnAddCourse").Href;
+            string registrationAnchorHref = classRow.QuerySelector<IHtmlAnchorElement>("a[id*=btnAddCourse]").Href;
             int hrefFirstQuoteIndex = registrationAnchorHref.IndexOf('\''), hrefSecondQuoteIndex = registrationAnchorHref.IndexOf('\'', hrefFirstQuoteIndex + 1);
             string registrationEventTarget = registrationAnchorHref.Substring(hrefFirstQuoteIndex + 1, hrefSecondQuoteIndex - hrefFirstQuoteIndex - 1);
 
@@ -114,7 +114,7 @@ namespace ScheduleBuilder.Core.Parsing
         public static Dictionary<int, string> ParseRegestrationEventTargets(IHtmlTableElement classesTable)
         {
             ConcurrentBag<(int ClassId, string ClassRegistrationEventTarget)> targets = new ConcurrentBag<(int, string)>();
-            Parallel.ForEach(classesTable.Rows.Skip(1), row => ParseClassIdAndRegistrationEventTarget(row));
+            Parallel.ForEach(classesTable.Rows.Skip(1), row => targets.Add(ParseClassIdAndRegistrationEventTarget(row)));
             return targets.ToDictionary(c => c.ClassId, c => c.ClassRegistrationEventTarget);
         }
     }

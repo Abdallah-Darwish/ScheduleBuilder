@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:WindowsUI"
         mc:Ignorable="d"
-        Title="ScheduleBuilder" Height="466.8" Width="1006.2" ResizeMode="NoResize" Loaded="Window_Loaded">
+        Title="ScheduleBuilder" Height="466.8" Width="1006.2" ResizeMode="NoResize">
     <TabControl HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
         <TabItem Header="Data source">
             <Grid HorizontalAlignment="Stretch" VerticalAlignment="Stretch">
